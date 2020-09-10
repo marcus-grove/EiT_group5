@@ -1,0 +1,15 @@
+# LaTeX
+*.user
+*.aux
+*.log
+*.bcf
+*.out
+*.bak
+*.bbl
+*.blg
+*.xml
+*.gz
+*.toc
+*.bib
+!Bibliography.bib
+*.pdf
