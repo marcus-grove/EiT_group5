@@ -1,4 +1,4 @@
-<mxfile host="app.diagrams.net" modified="2020-09-24T12:15:29.810Z" agent="5.0 (X11)" etag="X_L5vecgvBmMvE1rgAI_" version="13.7.5" type="github">
+<mxfile host="app.diagrams.net" modified="2020-09-24T12:16:58.998Z" agent="5.0 (X11)" etag="6F-5sDwDAixhxydahnQj" version="13.7.5" type="github">
   <diagram id="NJN-SermIxcG9rkNBjnC" name="Page-1">
     <mxGraphModel dx="819" dy="464" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
       <root>
@@ -66,6 +66,12 @@
               <mxPoint x="660" y="280" />
             </Array>
           </mxGeometry>
+        </mxCell>
+        <mxCell id="XFmI0_DhpFHzPJjfcOnQ-22" value="" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="70" y="310" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="XFmI0_DhpFHzPJjfcOnQ-23" value="Obstacle avoidance" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;" vertex="1" parent="1">
+          <mxGeometry x="110" y="330" width="50" height="20" as="geometry" />
         </mxCell>
       </root>
     </mxGraphModel>
