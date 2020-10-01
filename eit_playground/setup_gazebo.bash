@@ -6,17 +6,20 @@ usr_name=$(id -un) #$getent passwd | grep '/home' | cut -d: -f1 | tail -n 1
 if  [ $usr_name = 'nikopihl' ];
 then
 	echo The user is $usr_name
+	source devel/setup.bash
 	export ROS_PACKAGE_PATH=$ROS_PACKAGE_PATH:/home/$USER/Documents/8th_semester/PX4sim/Firmware
 	export ROS_PACKAGE_PATH=$ROS_PACKAGE_PATH:/home/$USER/Documents/8th_semester/PX4sim/Firmware/Tools/sitl_gazebo
 	export ROS_PACKAGE_PATH=$ROS_PACKAGE_PATH:$PWD/src/EiT_group5/eit_playground/models
 elif [ $usr_name = 'kenni' ];
 then
 	echo The user is $usr_name
+	source devel/setup.bash
 	export ROS_PACKAGE_PATH=$ROS_PACKAGE_PATH:/home/$USER/PX4_SITL_EIT/Firmware
 	export ROS_PACKAGE_PATH=$ROS_PACKAGE_PATH:/home/$USER/PX4_SITL_EIT/Firmware/Tools/sitl_gazebo
 	export ROS_PACKAGE_PATH=$ROS_PACKAGE_PATH:$PWD/src/EiT_group5/eit_playground/models
 else
-	echo setup is /home	
+	echo setup is /home
+	source devel/setup.bash	
 	export ROS_PACKAGE_PATH=$ROS_PACKAGE_PATH:/home/$USER/Firmware
 	export ROS_PACKAGE_PATH=$ROS_PACKAGE_PATH:/home/$USER/Firmware/Tools/sitl_gazebo
 	export ROS_PACKAGE_PATH=$ROS_PACKAGE_PATH:$PWD/src/EiT_group5/eit_playground/models
