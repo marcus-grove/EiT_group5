@@ -9,7 +9,7 @@ then
 	export ROS_PACKAGE_PATH=$ROS_PACKAGE_PATH:/home/$USER/Documents/8th_semester/PX4sim/Firmware
 	export ROS_PACKAGE_PATH=$ROS_PACKAGE_PATH:/home/$USER/Documents/8th_semester/PX4sim/Firmware/Tools/sitl_gazebo
 	export ROS_PACKAGE_PATH=$ROS_PACKAGE_PATH:$PWD/src/EiT_group5/eit_playground/models
-elif [$usr_name = 'kenni'];
+elif [ $usr_name = 'kenni' ];
 then
 	echo The user is $usr_name
 	export ROS_PACKAGE_PATH=$ROS_PACKAGE_PATH:/home/$USER/PX4_SITL_EIT/Firmware
