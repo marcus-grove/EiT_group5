@@ -7,7 +7,6 @@
 *.bak
 *.bbl
 *.blg
-*.xml
 *.gz
 *.toc
 *.bib
