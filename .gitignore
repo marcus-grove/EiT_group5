@@ -7,10 +7,11 @@
 *.bak
 *.bbl
 *.blg
-*.xml
 *.gz
 *.toc
 *.bib
 !Bibliography.bib
 *.pdf
 *.txt
+*.bash
+*.mp4
