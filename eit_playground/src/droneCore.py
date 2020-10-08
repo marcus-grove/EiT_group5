@@ -140,7 +140,8 @@ class droneCore():
                 self._setState('loiter')
         if command == 'o': # Offboard control
             if self.sysState == 'idle':
-                self.enableMHPub.publish(True) # send messages to enable offboard
+                self.enableMHPub.publish(True)
+
                 self._setState('loiter')
                 for i in range(0,3):
                     resp = self.setMode(0,'OFFBOARD')
@@ -164,12 +165,12 @@ class droneCore():
                 rospy.logwarn('DroneCore: OFFBOARD not enabled')
             else:
                 self._setState('mission')
-        if command == 'k': # Kill switch 
-            self.enableMHPub.publish(False)
-            self._setState('idle')
-            #TODO: Implement PX4 kill switch
-        if command == 'r': # reset ROS framwork
+        if command == 'r': # Reset ROS framework
             pass
+        if command == 'k': # Kill drone
+            self.enableMHPub.publish(False)
+            self._setState('idle')            
+            #TODO: Implement PX4 kill switch
 
     def _cb_SatFix(self, msg):
         self.uavGPSPos = msg
