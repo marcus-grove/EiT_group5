@@ -27,7 +27,7 @@ exampleSubGPS    = '/onboard/setpoint/exampleGPS'
 exampleSubAtti   = '/onboard/setpoint/exampleAtti'
 lidarLandingAtti = '/onboard/setpoint/lidarLandingAtti'
 
-wpCompleteTopic  = '/onboard/check/WPSuccess'
+
 
 class msgControl():
     def __init__(self):
@@ -59,8 +59,6 @@ class msgControl():
         self.setpointGPSPub = mavSP.get_pub_position_local(queue_size=1)
         self.setpointATTIPub = mavSP.get_pub_attitude_pose(queue_size=1)
         # self.setpointATTIPub = rospy.publisher('mavros/setpoint_raw/attitude', mavros_ms)
-        self.wpCompletePub = rospy.Publisher(
-            wpCompleteTopic, Int8, queue_size=1)
 
         # root_framework Subs
         rospy.Subscriber(onB_StateSub, String, self.onStateChange)
@@ -111,7 +109,7 @@ class msgControl():
 
     def handlerEnable(self, msg):
         if msg.data == True:
-            print("messageHandler Enabled")
+            rospy.loginfo("MessageHandler: Enabled")
             self.enable = True
         if msg.data == False:
             # if self.curLocalPos.pose.position.z > 0.1:
@@ -119,7 +117,7 @@ class msgControl():
             #     self.sysState = 'loiter'
             # else:
             if self.enable:
-                print("messageHandler Disabled")
+                rospy.loginfo("MessageHandler: Disabled")
             self.enable = False
 
     def _pubMsg(self, msg, topic):
@@ -247,7 +245,7 @@ class msgControl():
             rospy.logfatal_once(
                 "MessageHandler received no message: has a pilot crashed?")
             self.setMode(0, "AUTO.LOITER")
-            rospy.loginfo('MSGCTRL: PX4 mode = AUTO.LOITER')
+            rospy.loginfo('MessageHandler: PX4 mode = AUTO.LOITER')
         
         return outwardMsg
 

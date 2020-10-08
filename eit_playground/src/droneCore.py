@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 
+import numpy as np
+
 import rospy
 
 import mavros as mav
@@ -14,10 +16,11 @@ from sensor_msgs.msg import NavSatFix
 from std_msgs.msg import (String, Int8, Float64, Bool)
 mavros.set_namespace('mavros')
 
-onB_StateSub = '/onboard/state'
-mh_enableSub = '/onboard/enableMH'
-commandSub   = '/gcs/command'
-#isolatedSub  = '/onboard/isolated/llp_enable'
+onB_StateSub     = '/onboard/state'
+mh_enableSub     = '/onboard/enableMH'
+wpCompleteTopic  = '/onboard/check/WPSuccess'
+
+commandSub       = '/gcs/command'
 
 class droneCore():
     def __init__(self):
@@ -33,6 +36,7 @@ class droneCore():
         
         self.uavGPSPos = None
         self.uavLocalPos = mavSP.PoseStamped()
+        self.uavLocalSetpoint = mavSP.PoseStamped()
         self.uavHdg = None  
 
         ''' Subscribers '''
@@ -50,6 +54,18 @@ class droneCore():
             mavros.get_topic('global_position','global'),
             NavSatFix, 
             self._cb_SatFix)
+
+        # PX4 setpoint local 
+        rospy.Subscriber(
+            mavros.get_topic('setpoint_position','local'),
+            mavSP.PoseStamped, 
+            self._cb_onSetpointChange)
+
+        # PX4 local position
+        rospy.Subscriber(
+            mavros.get_topic('local_position', 'pose'),
+            mavSP.PoseStamped, 
+            self._cb_onPositionChange)
 
         # PX4 global compass heading (GPS)
         rospy.Subscriber(
@@ -74,8 +90,13 @@ class droneCore():
         self.enableMHPub = rospy.Publisher(
             mh_enableSub,
             Bool,
-            queue_size=1
-        )
+            queue_size=1)
+
+        # Waypoint complete
+        self.wpCompletePub = rospy.Publisher(
+            wpCompleteTopic, 
+            Bool, 
+            queue_size=1)
         
         #self.llpPub = rospy.Publisher(isolatedSub, Bool, queue_size=1)
         self.spLocalPub = mavSP.get_pub_position_local(queue_size=5)
@@ -129,6 +150,13 @@ class droneCore():
             #self.enableMHPub.publish(False)
             #self.MH_enabled = False
             #self.statePub.publish('isolate')
+    def _cb_onPositionChange(self, msg):
+        self.uavLocalPos = msg
+        pass
+
+    def _cb_onSetpointChange(self, msg):
+        self.uavLocalSetpoint = msg
+        pass
 
     def _cb_onCommand(self, msg):
         command = str(chr(msg.data))
@@ -186,34 +214,47 @@ class droneCore():
         pass
 
     ''' Functions '''
-    def droneTakeoff(self, alt=1.0):
+    def waypointCheck(self, threshold=0.25):
+        pos = np.array((self.uavLocalPos.pose.position.x,
+                        self.uavLocalPos.pose.position.y,
+                        self.uavLocalPos.pose.position.z))
+
+        setpoint = np.array((self.uavLocalSetpoint.pose.position.x,
+                        self.uavLocalSetpoint.pose.position.y,
+                        self.uavLocalSetpoint.pose.position.z))        
+
+        return np.linalg.norm(setpoint - pos) < threshold
+
+    def droneTakeoff(self, alt=1.5):
         if self.isAirbourne == False or self.sysState == 'idle':
             if not self.MAVROS_State.armed:
                 mavCMD.arming(True)
                 rospy.loginfo('DroneCore: Arming')
 
             preArmMsgs = self.uavLocalPos
-            preArmMsgs.pose.position.z = 1.5
+            preArmMsgs.pose.position.z = alt
             rospy.loginfo('DroneCore: Takeoff altitude = {} m'.format(preArmMsgs.pose.position.z))
 
-            for i in range(50):
+            for i in range(0,50):
                 self._pubMsg(preArmMsgs, self.spLocalPub)
-                self.rate.sleep()
+                #self.rate.sleep()
+
+            self.setMode(0, 'OFFBOARD')
+            rospy.loginfo('DroneCore: PX4 mode = OFFBOARD')
+
+            #wait until takeoff has occurred
+            while(not self.waypointCheck()):
+                self._pubMsg(preArmMsgs, self.spLocalPub)
 
             self._setState('takeoff')
-            self.setMode(0, 'OFFBOARD')
             self.isAirbourne = True
             rospy.loginfo('DroneCore: UAV is airbourne')
-            rospy.loginfo('DroneCore: PX4 mode = OFFBOARD')
             self.enableMHPub.publish(self.isAirbourne)
-            #wait until takeoff has occurred
-            while(self.uavLocalPos.pose.position.z <= (preArmMsgs.pose.position.z-0.25)):
-                self._pubMsg(preArmMsgs, self.spLocalPub)
-
             rospy.loginfo('DroneCore: Takeoff complete')
 
     def run(self):
         while not rospy.is_shutdown():
+            self.wpCompletePub.publish(self.waypointCheck())
             self.rate.sleep()
         pass
 
