@@ -139,37 +139,37 @@ class droneCore():
             if self.sysState == 'takeoff':
                 self._setState('loiter')
         if command == 'o': # Offboard control
-            self.enableMHPub.publish(True) # send messages to enable offboard
-            self._setState('loiter')
-            for i in range(0,3):
-                resp = self.setMode(0,'OFFBOARD')
-                if self.MAVROS_State.mode == 'OFFBOARD':
-                    rospy.loginfo('DroneCore: PX4 mode = OFFBOARD')
-                    break
+            if self.sysState == 'idle':
+                self.enableMHPub.publish(True)
+                self._setState('loiter')
+                for i in range(0,3):
+                    resp = self.setMode(0,'OFFBOARD')
+                    if self.MAVROS_State.mode == 'OFFBOARD':
+                        rospy.loginfo('DroneCore: PX4 mode = OFFBOARD')
+                        break
+            else:
+                self.enableMHPub.publish(False)
+                self._setState('idle')
+                for i in range(0,3):
+                    resp = self.setMode(0,'AUTO.LOITER')
+                    if self.MAVROS_State.mode == 'AUTO.LOITER':
+                        rospy.loginfo('DroneCore: PX4 mode = AUTO.LOITER')
+                        break
         if command == 'h': # Returns the drone to home
             pass
-        if command == 'l': # Perform vision guided landing
+        if command == 'v': # Perform vision guided landing
             self._setState('vision_land')
         if command == 'm':
             if self.MAVROS_State.mode != 'OFFBOARD':
                 rospy.logwarn('DroneCore: OFFBOARD not enabled')
             else:
                 self._setState('mission')
-        #if command == 'l':
-            #if self.MAVROS_State.mode != 'OFFBOARD':
-                #rospy.logwarn('DroneCore: OFFBOARD not enabled')
-            #else:
-                #rospy.loginfo_once("loiterPilot Enabled")
-                #self._setState('loiter')
-        #if command == 'p':
-            #rospy.logwarn('enabling iROS pilot!')
-            #self.llpPub.publish(True)
-        #if command == 'a':
-            #rospy.logwarn_once('DroneCore: aborting!, disabling MessageHandler')
-            #self.setMode(0,'AUTO.LOITER')
-            #rospy.loginfo('DroneCore: PX4 mode = AUTO.LOITER')
-            #self.enableMHPub.publish(False)
-
+        if command == 'r': # Reset ROS framework
+            pass
+        if command == 'k': # Kill drone
+            self.enableMHPub.publish(False)
+            self._setState('idle')            
+            #TODO: Implement PX4 kill switch
 
     def _cb_SatFix(self, msg):
         self.uavGPSPos = msg
