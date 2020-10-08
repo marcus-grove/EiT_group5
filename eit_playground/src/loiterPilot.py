@@ -16,9 +16,8 @@ from geometry_msgs.msg import Quaternion
 mavros.set_namespace('mavros')
 
 onB_StateSub = '/onboard/state'
-targetWP = '/onboard/setpoint/loiter'
-
-keySub = '/gcs/command'
+targetWP     = '/onboard/setpoint/loiter'
+commandSub   = '/gcs/command'
 
 debug = True
 class loiterPilot(): 
@@ -31,23 +30,38 @@ class loiterPilot():
         self.enable = False
         self.uavHead = 0.0
         self.headingMode = False        
-
-        rospy.Subscriber(onB_StateSub, String, self.onStateChange)
-        rospy.Subscriber(mavros.get_topic('local_position', 'pose'),mavSP.PoseStamped, self.onPositionChange)
-        rospy.Subscriber(mavros.get_topic('global_position','compass_hdg'), Float64, self.onHeadingUpdate)
-        rospy.Subscriber(keySub, Int8, self._cb_onKeypress)
-        
-        # self.targetPub = rospy.Publisher
-        # self.loiterPub = mavSP.get_pub_position_local(queue_size=5)
-
-
-        
-        self.loiterPub = rospy.Publisher(targetWP, mavSP.PoseStamped, queue_size=5)
         self.loiterPos = mavSP.PoseStamped()
         self.curPos = mavSP.PoseStamped()
-        
-        rospy.loginfo('loiterPilot Ready')
 
+        ''' Subsribers '''
+        # Onboard state
+        rospy.Subscriber(onB_StateSub, String, self._cb_onStateChange)
+
+        # PX4 local position
+        rospy.Subscriber(
+            mavros.get_topic('local_position', 'pose'),
+            mavSP.PoseStamped, 
+            self._cb_onPositionChange)
+
+        # PX4 global compass heading (GPS)
+        rospy.Subscriber(
+            mavros.get_topic('global_position','compass_hdg'), 
+            Float64, 
+            self._cb_onHeadingUpdate)
+
+        # Ground control commands
+        rospy.Subscriber(commandSub, Int8, self._cb_onCommand)
+
+        ''' Publishers '''
+        # Target waypoint for loiter pilot    
+        self.loiterPub = rospy.Publisher(
+            targetWP, 
+            mavSP.PoseStamped, 
+            queue_size=5)
+      
+        rospy.loginfo('Loiter: LoiterPilot Ready')
+
+    ''' Core Functions '''
     def _pubMsg(self, msg, topic):
         if self.headingMode:
             f_ID="base_link"
@@ -60,8 +74,13 @@ class loiterPilot():
         topic.publish(msg)
         self.rate.sleep()
 
+    ''' Functions '''
     def adjustYaw(self, angle=5.0): 
-        (_, _, yaw) = euler_from_quaternion([self.loiterPos.pose.orientation.x, self.loiterPos.pose.orientation.y, self.loiterPos.pose.orientation.z, self.loiterPos.pose.orientation.w])
+        (_, _, yaw) = euler_from_quaternion(
+            [self.loiterPos.pose.orientation.x, 
+            self.loiterPos.pose.orientation.y, 
+            self.loiterPos.pose.orientation.z, 
+            self.loiterPos.pose.orientation.w])
 
         yaw += radians(angle)
         orientAdj = quaternion_from_euler(0, 0, yaw)
@@ -69,7 +88,6 @@ class loiterPilot():
         self.loiterPos.pose.orientation = Quaternion(*orientAdj)
         
     def setBearing(self, bearing=0.0):
-
         orientAdj = quaternion_from_euler(0, 0, radians(bearing))
 
         desiredBearing = mavSP.PoseStamped()
@@ -77,62 +95,37 @@ class loiterPilot():
         
         return desiredBearing.pose.orientation
 
-    def _cb_onKeypress(self, msg):
+    ''' Subscriber callbacks '''
+    def _cb_onCommand(self, msg):
         
-        keypress = str(chr(msg.data))
-        keypress.lower()
-        # print("I got:", keypress)
+        command = str(chr(msg.data))
+        command.lower()
         if self.enable:
-            if keypress == 'd':
+            if command == 'd':
                 self.loiterPos.pose.position.x += 0.5 
-            if keypress == 'a':
+            if command == 'a':
                 self.loiterPos.pose.position.x -= 0.5
-            if keypress == 'w':
+            if command == 'w':
                 self.loiterPos.pose.position.y += 0.5
-            if keypress == 's':
+            if command == 's':
                 self.loiterPos.pose.position.y -= 0.5    
-            if keypress == 'z':
+            if command == 'z':
                 self.loiterPos.pose.position.z += 0.5 
-            if keypress == 'x':
+            if command == 'x':
                 self.loiterPos.pose.position.z -= 0.5
-            if keypress == 'q':
+            if command == 'q':
                 self.adjustYaw(5.0)
-            if keypress == 'e':
+            if command == 'e':
                 self.adjustYaw(-5.0)
-
-            # if keypress == 'h':
-            #     self.headingMode = not self.headingMode
-            #     print("headingMode: ", self.headingMode) 
-            if debug: 
-                if keypress == 'r':
-                    # move the drone to a position on the model power line 
-                    rospy.loginfo("Loiter: moving to powerline set. ")
-                    self.loiterPos.pose.position.x = 16
-                    self.loiterPos.pose.position.y = 5
-                    self.loiterPos.pose.position.z = 27
-                    self.loiterPos.pose.orientation = self.setBearing(315.0)
-                if keypress == 'f':
-                    rospy.loginfo("Loiter: moving to single power line")
-                    self.loiterPos.pose.position.x = -38.5
-                    self.loiterPos.pose.position.y = 24.0
-                    self.loiterPos.pose.position.z = 13.0
-                    self.loiterPos.pose.orientation = self.setBearing(80)
-                if keypress == 'h':
-                    #Home position
-                    self.loiterPos.pose.position.x = 0
-                    self.loiterPos.pose.position.y = 0
-                    self.loiterPos.pose.position.z = 7.5
-
         else:
-            options = "wasdqezxh"        #options as above
-            if keypress in options:  
-                # print("warn: loiterpilot not enabled")
-                pass
+            options = "wasdqezx" # options as above
+            if command in options: 
+                rospy.logwarn('Loiter: Pilot not enabled') 
                 
-    def onHeadingUpdate(self,msg):
+    def _cb_onHeadingUpdate(self,msg):
         self.uavHead = msg.data
 
-    def onStateChange(self, msg):
+    def _cb_onStateChange(self, msg):
         if msg.data == 'loiter':
             print('loiter enabled')
             self.loiterPos = self.curPos
@@ -143,7 +136,7 @@ class loiterPilot():
                 print('loiter disabled')
             self.enable = False
         
-    def onPositionChange(self,msg):
+    def _cb_onPositionChange(self,msg):
         self.curPos = msg
 
     def run(self):

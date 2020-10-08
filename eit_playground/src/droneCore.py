@@ -99,7 +99,7 @@ class droneCore():
                 break
             rospy.sleep(1)
         if not self.MAVROS_State.connected:
-            errorMsg = "MAVROS not connected!"
+            errorMsg = "DroneCore: MAVROS not connected!"
             rospy.logfatal(errorMsg)
             rospy.signal_shutdown(errorMsg)
     

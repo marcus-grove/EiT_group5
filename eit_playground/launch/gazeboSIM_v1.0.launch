@@ -2,7 +2,7 @@
 <launch>
     <include file="$(find eit_playground)/launch/posix.launch">
         <arg name="vehicle" value="sdu_drone_mono_cam"/>
-        <arg name="env" value="optitrack"/>
+        <arg name="env" value="optitrack_fence_with_holes"/>
     </include>
 
     <include file="$(find mavros)/launch/px4.launch">
