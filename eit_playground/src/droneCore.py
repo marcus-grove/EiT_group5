@@ -14,11 +14,15 @@ import mavros_msgs.srv
 
 from sensor_msgs.msg import NavSatFix
 from std_msgs.msg import (String, Int8, Float64, Bool)
+from geometry_msgs.msg import PoseStamped, Quaternion
+from tf.transformations import quaternion_from_euler, euler_from_quaternion
+
 mavros.set_namespace('mavros')
 
 onB_StateSub     = '/onboard/state'
 mh_enableSub     = '/onboard/enableMH'
 wpCompleteTopic  = '/onboard/check/WPSuccess'
+fence_detection_pub = '/onboard/setpoint/fence_detection'
 
 commandSub       = '/gcs/command'
 
@@ -85,6 +89,8 @@ class droneCore():
             onB_StateSub, 
             String,
             queue_size=1)
+        
+        self.fence_detection_pub = rospy.Publisher(fence_detection_pub, PoseStamped, queue_size=1)
 
         # Enable message handler
         self.enableMHPub = rospy.Publisher(
@@ -100,10 +106,12 @@ class droneCore():
         
         #self.llpPub = rospy.Publisher(isolatedSub, Bool, queue_size=1)
         self.spLocalPub = mavSP.get_pub_position_local(queue_size=5)
+        self.pub_local_pose = rospy.Publisher('/mavros/setpoint_position/local',PoseStamped,queue_size=10)
 
         ''' Services '''
         self.setMode = rospy.ServiceProxy('/mavros/set_mode', mavros_msgs.srv.SetMode)
-        self.enableTakeoff = rospy.ServiceProxy('/ mavros/cmd/takeoff', mavros_msgs.srv.CommandTOL)
+        self.enableTakeoff = rospy.ServiceProxy('/mavros/cmd/takeoff', mavros_msgs.srv.CommandTOL)
+        self.set_home_pos = rospy.ServiceProxy('/mavros/cmd/set_home', mavros_msgs.srv.CommandHome)
 
         # Perform MAVROS handshake   
         self._mavrosHandshake()
@@ -189,10 +197,8 @@ class droneCore():
         if command == 'v': # Perform vision guided landing
             self._setState('vision_land')
         if command == 'm': # Execute mission
-            if self.MAVROS_State.mode != 'OFFBOARD':
-                rospy.logwarn('DroneCore: OFFBOARD not enabled')
-            else:
-                self._setState('mission')
+            self.droneFenceDetectionMission()
+            #self._setState('mission')
         if command == 'r': # Reset ROS framework
             pass
         if command == 'k': # Kill drone
@@ -251,6 +257,32 @@ class droneCore():
             rospy.loginfo('DroneCore: UAV is airbourne')
             self.enableMHPub.publish(self.isAirbourne)
             rospy.loginfo('DroneCore: Takeoff complete')
+    
+    def droneFenceDetectionMission(self):
+        
+        #To change velocity of the drone set the MPC_XY_VEL_MAX, MPC_Z_VEL_MAX_DN and MPC_Z_VEL_MAX_UP parameters
+        alt_ = 1
+        self.droneTakeoff(alt = alt_)
+        
+        waypoints = [[-5, 0, alt_], [5, 0, alt_], [0, 0, alt_]]
+        angle = Quaternion(*quaternion_from_euler(0, 0, np.deg2rad(90)))
+
+        self._setState('fence_breach_detection')
+        for waypoint in waypoints:
+            
+            preArmMsgs = self.uavLocalPos
+            preArmMsgs.pose.position.x = waypoint[0]
+            preArmMsgs.pose.position.y = waypoint[1]
+            preArmMsgs.pose.position.z = waypoint[2]
+            preArmMsgs.pose.orientation = angle
+            
+            #wait until waypoint reached
+            while(not self.waypointCheck()):
+                self.fence_detection_pub.publish(preArmMsgs)
+                self._pubMsg(preArmMsgs, self.spLocalPub)
+            
+        self._setState('idle')
+        rospy.loginfo('DroneCore: Mission fence detection complete')
 
     def run(self):
         while not rospy.is_shutdown():

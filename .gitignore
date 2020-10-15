@@ -15,3 +15,8 @@
 *.txt
 *.bash
 *.mp4
+
+*.py~
+*.swp
+*.un~
+*.gitignore~
