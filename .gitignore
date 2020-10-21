@@ -16,6 +16,7 @@
 *.bash
 *.mp4
 
+*.png
 *.py~
 *.swp
 *.un~
