@@ -12,6 +12,12 @@
 *.bib
 !Bibliography.bib
 *.pdf
-*.txt
+.txt
 *.bash
 *.mp4
+
+*.png
+*.py~
+*.swp
+*.un~
+*.gitignore~

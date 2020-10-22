@@ -26,7 +26,7 @@ loiterSub        = '/onboard/setpoint/loiter'
 exampleSubGPS    = '/onboard/setpoint/exampleGPS'
 exampleSubAtti   = '/onboard/setpoint/exampleAtti'
 lidarLandingAtti = '/onboard/setpoint/lidarLandingAtti'
-
+fence_detection_sub = '/onboard/setpoint/fence_detection'
 
 
 class msgControl():
@@ -43,6 +43,7 @@ class msgControl():
         self.gotMission = False
 
         self.loiterMsg = None
+        self.fence_detection_msg = None
         self.pylonNavMsg = None
         self.inspectMsg = None
         self.apAlignMsg = None
@@ -77,14 +78,14 @@ class msgControl():
                          mavros_msgs.msg.HomePosition,
                          self._cb_onHomeUpdate)
         # pilot subs
-
         rospy.Subscriber(loiterSub, mavSP.PoseStamped, self.pilot_loiterMsg)
-        rospy.Subscriber(exampleSubGPS, mavSP.PoseStamped,
-                         self.pilot_exampleGPSMsg)
+        
+        rospy.Subscriber(fence_detection_sub, mavSP.PoseStamped, self.pilot_fence_detection_sub)
+        
+        rospy.Subscriber(exampleSubGPS, mavSP.PoseStamped, self.pilot_exampleGPSMsg)
         rospy.Subscriber(exampleSubAtti, mavros_msgs.msg.AttitudeTarget, self.pilot_exampleATTIMsg)
         rospy.Subscriber(lidarLandingAtti, mavros_msgs.msg.AttitudeTarget, self.pilot_lidarlandingMsg)
-        self.setMode = rospy.ServiceProxy(
-            '/mavros/set_mode', mavros_msgs.srv.SetMode)
+        self.setMode = rospy.ServiceProxy('/mavros/set_mode', mavros_msgs.srv.SetMode)
 
     def _mavrosHandshake(self):
         rospy.loginfo('MessageHandler: Waiting for MAVROS Connection.')
@@ -169,6 +170,9 @@ class msgControl():
     def pilot_loiterMsg(self, msg):
         self.loiterMsg = msg
 
+    def pilot_fence_detection_sub(self, msg):
+        self.fence_detection_msg = msg
+
     def pilot_apAlignMsg(self, msg):
         self.apAlignMsg = msg
 
@@ -225,6 +229,9 @@ class msgControl():
 
         if self.sysState == 'apAlign':
             outwardMsg = self.apAlignMsg
+
+        if self.sysState == 'fence_breach_detection':
+            outwardMsg = self.fence_detection_msg
 
         if self.sysState == 'example':
             if self.sysSubState == 'ATTI':
