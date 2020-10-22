@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import numpy as np
+import os
 
 import rospy
 
@@ -32,6 +33,7 @@ class droneCore():
         self.MH_enabled = False
         self.sysState = 'idle' 
         self.MAVROS_State = mavros_msgs.msg.State()
+        self.MAVROS_PrevState = mavros_msgs.msg.State()
         self.isAirbourne = False
         
         self.uavGPSPos = None
@@ -105,16 +107,15 @@ class droneCore():
         self.setMode = rospy.ServiceProxy(
             '/mavros/set_mode', 
             mavros_msgs.srv.SetMode)
-        self.enableTakeoff = rospy.ServiceProxy(
-            '/mavros/cmd/takeoff', 
-            mavros_msgs.srv.CommandTOL)
+        #self.enableTakeoff = rospy.ServiceProxy(
+            #'/mavros/cmd/takeoff', 
+            #mavros_msgs.srv.CommandTOL)
 
         # Perform MAVROS handshake   
         self._mavrosHandshake()
 
-
-        # Update parameters
-        RTL_RETURN_ALT
+        # Param update
+        os.system('rosrun mavros mavparam set MIS_TAKEOFF_ALT 1.5')
 
     ''' Core Functions '''
     def _mavrosHandshake(self): 
@@ -144,13 +145,23 @@ class droneCore():
     # Fuction for updating onboard state
     def _setState(self, state):
         self.sysState = state
-        if state == 'idle':
+        if state == 'idle' or state == 'takeoff':
             self.enableMHPub.publish(False)
         elif not self.MH_enabled:
             self.enableMHPub.publish(True)
             self.MH_enabled = True
         self.statePub.publish(state)
         rospy.loginfo('DroneCore: state = {}'.format(state))
+
+    # Function that waits for PX4 mode change
+    def _waitForPX4Mode(self, mode, time):
+        for i in range(0,time):
+            self.rate.sleep()
+            if self.MAVROS_State.mode == mode:
+                return True
+
+        rospy.logwarn('DroneCore: PX4 mode change timeout')
+        return False
 
     ''' Subscriber callbacks '''
     #def _cb_onKillSwitch(self,msg):
@@ -172,8 +183,6 @@ class droneCore():
     
         if command == 't': # Takeoff
             self.droneTakeoff()
-            #if self.sysState == 'takeoff':
-                #self._setState('loiter')
         if command == 'o': # Offboard control
             if self.sysState == 'idle':
                 self.enableMHPub.publish(True)
@@ -182,17 +191,18 @@ class droneCore():
                 for i in range(0,3):
                     self.setMode(0,'OFFBOARD')
                     if self.MAVROS_State.mode == 'OFFBOARD':
-                        rospy.loginfo('DroneCore: PX4 mode = OFFBOARD')
                         break
+                #rospy.loginfo('DroneCore: PX4 mode = OFFBOARD')
             else:
                 self._setState('idle')
                 for i in range(0,3):
                     self.setMode(0,'AUTO.LOITER')
                     if self.MAVROS_State.mode == 'AUTO.LOITER':
-                        rospy.loginfo('DroneCore: PX4 mode = AUTO.LOITER')
                         break
+                #rospy.loginfo('DroneCore: PX4 mode = AUTO.LOITER')
         if command == 'h': # Returns the drone to home
-            pass
+            self._setState('idle')
+            self.setMode(0,'AUTO.RTL')
         if command == 'v': # Perform vision guided landing
             self._setState('vision_land')
         if command == 'm': # Execute mission
@@ -216,15 +226,14 @@ class droneCore():
         self.uavHdg = msg
     
     def _cb_uavState(self, msg):
+        self.MAVROS_PrevState = self.MAVROS_State
         self.MAVROS_State = msg
+        if self.MAVROS_PrevState.mode != self.MAVROS_State.mode:
+            rospy.loginfo('DroneCore: PX4 mode = {}'.format(self.MAVROS_State.mode))
+    
         if self.sysState != 'idle' and self.sysState != 'takeoff' and self.MAVROS_State.mode != 'OFFBOARD':
-             rospy.logwarn("DroneCore: System enabled, but drone is in manual control. Disabling Message Handler")
-             self._setState('idle')
-             self.setMode(0,'AUTO.RTL')
-
-
-#AUTO.PRECLAND AUTO.FOLLOW_TARGET AUTO.RTGS AUTO.LAND AUTO.RTL AUTO.MISSION RATTITUDE AUTO.LOITER STABILIZED AUTO.TAKEOFF OFFBOARD POSCTL ALTCTL AUTO.READY ACRO MANUAL
-
+            rospy.logwarn("DroneCore: System enabled, but drone is in manual control. Disabling Message Handler")
+            self._setState('idle')
         pass
 
     ''' Functions '''
@@ -239,34 +248,36 @@ class droneCore():
 
         return np.linalg.norm(setpoint - pos) < threshold
 
-    def droneTakeoff(self, alt=1.5):
+    def droneTakeoff(self):
         if self.isAirbourne == False or self.sysState == 'idle':
             if not self.MAVROS_State.armed:
                 mavCMD.arming(True)
                 rospy.loginfo('DroneCore: Arming')
 
-            preArmMsgs = self.uavLocalPos
-            preArmMsgs.pose.position.z = alt
-            rospy.loginfo('DroneCore: Takeoff altitude = {} m'.format(preArmMsgs.pose.position.z))
+            self._setState('takeoff')
+            self.setMode(0, 'AUTO.TAKEOFF')
+            self._waitForPX4Mode('AUTO.TAKEOFF',30)
 
-            for i in range(0,50):
-                self._pubMsg(preArmMsgs, self.spLocalPub)
+            #while (self.MAVROS_State.mode != 'AUTO.TAKEOFF'):
                 #self.rate.sleep()
 
-            self.setMode(0, 'OFFBOARD')
-            rospy.loginfo('DroneCore: PX4 mode = OFFBOARD')
-
-            self._setState('takeoff')
             self.isAirbourne = True
-            rospy.loginfo('DroneCore: UAV is airbourne')
-            #wait until takeoff has occurred
-            while(not self.waypointCheck()):
-                self._pubMsg(preArmMsgs, self.spLocalPub)
+            while (self.MAVROS_State.mode != 'AUTO.LOITER'):
+                self.rate.sleep()
 
-            rospy.loginfo('DroneCore: Takeoff complete')
+            self.enableMHPub.publish(True)
             self._setState('loiter')
-            self.rate.sleep()
-            self.enableMHPub.publish(self.isAirbourne)
+
+            #self.setMode(0, 'OFFBOARD')
+            #while (self.MAVROS_State.mode != 'OFFBOARD'):
+                #self.rate.sleep()
+
+            for i in range(0,3):
+                self.setMode(0,'OFFBOARD')
+                self.rate.sleep()
+                if self.MAVROS_State.mode == 'OFFBOARD':
+                    break
+            #rospy.loginfo('DroneCore: PX4 mode = OFFBOARD')
 
     def run(self):
         while not rospy.is_shutdown():

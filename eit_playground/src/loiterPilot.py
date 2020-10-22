@@ -127,13 +127,13 @@ class loiterPilot():
 
     def _cb_onStateChange(self, msg):
         if msg.data == 'loiter':
-            print('loiter enabled')
+            rospy.loginfo('Loiter: Enabled')
             self.loiterPos = self.curPos
             # self.loiterPos.pose.orientation = self.setBearing(self.uavHead)
             self.enable = True
         else:
             if self.enable:
-                print('loiter disabled')
+                rospy.loginfo('Loiter: Disabled')
             self.enable = False
         
     def _cb_onPositionChange(self,msg):

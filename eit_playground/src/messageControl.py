@@ -135,7 +135,7 @@ class msgControl():
             self.sysState = 'missionHold'
         if msg.data == 'idle':
             self.enable = False
-            print("messageHandler Disabled")
+            rospy.loginfo('MessageHandler: Disabled')
         else:
             self.sysState = msg.data
 
@@ -147,7 +147,6 @@ class msgControl():
 
     def _cb_onHomeUpdate(self, msg):
         if self.homePos == None:
-            # print("home updated")
             pass
         self.homePos = msg
 
@@ -209,6 +208,7 @@ class msgControl():
         # print outwardMsg.header.frame_id
         if self.sysState == 'loiter':
             outwardMsg = self.loiterMsg
+            self.loiterMsg = None
 
         if self.sysState == 'missionHold':
             outwardMsg = self.loiterMsg
@@ -240,34 +240,35 @@ class msgControl():
         if self.sysState == 'isolate':
             self.enable = False
             outwardMsg = mavSP.msg.PoseStamped()
-
-        if outwardMsg == None:
-            rospy.logfatal_once(
-                "MessageHandler received no message: has a pilot crashed?")
-            self.setMode(0, "AUTO.LOITER")
-            rospy.loginfo('MessageHandler: PX4 mode = AUTO.LOITER')
         
         return outwardMsg
 
-# Waypoint checking
-
     def publishPilotMsg(self):
-        outMsg = None
-        try:
-            outMsg = self.get_pilotMsg()
+        #outMsg = None
+        #try:
+        outMsg = self.get_pilotMsg()
+
+        if self.homePos == None:
+            rospy.logwarn("MessageHandler: unable to publish, no home position")
+
+        if outMsg == None:
+            if True:
+            #if self.sysState != 'takeoff':
+                rospy.logfatal_once(
+                    "MessageHandler: Received no message. Has a pilot crashed?")
+                self.setMode(0, "AUTO.LOITER")
+                rospy.loginfo('MessageHandler: PX4 mode = AUTO.LOITER')
+        else:
             if (outMsg._type == "geometry_msgs/PoseStamped"):
                 self._pubMsg(outMsg, self.setpointGPSPub)
 
-            # if (outMsg._type == ""):
 
-            if self.homePos == None:
-                rospy.loginfo_once("unable: no home position")
         
           
-        except AttributeError:
-            if outMsg == None:
-                rospy.logwarn_once("MessageHandler: No ")
-                self.setMode(0, 'AUTO.LOITER')
+        #except AttributeError:
+            #if outMsg == None:
+                #rospy.logwarn_once("MessageHandler: No ")
+                #self.setMode(0, 'AUTO.LOITER')
     
 
 
@@ -297,7 +298,6 @@ class msgControl():
             if self.enable:
                 self.publishPilotMsg()
                 # self._pubMsg(self.setpointGPS, self.setpointGPSPub)
-                # self.waypointCheck()
 
             self.rate.sleep()
 
