@@ -18,7 +18,7 @@ class fence_breach_detection:
         
         #Init ROS
         rospy.init_node('fence_breach_detection')
-        rospy.Timer(rospy.Duration(1), self.timer_callback)
+        rospy.Timer(rospy.Duration(2), self.timer_callback)
         
         #Variables
         self.ros_img = Image()
