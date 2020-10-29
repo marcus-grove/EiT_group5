@@ -118,7 +118,7 @@ class droneCore():
         self._mavrosHandshake()
 
         # Param update
-        os.system('rosrun mavros mavparam set MIS_TAKEOFF_ALT 1.5')
+        #os.system('rosrun mavros mavparam set MIS_TAKEOFF_ALT 1.5')
 
     ''' Core Functions '''
     def _mavrosHandshake(self): 
