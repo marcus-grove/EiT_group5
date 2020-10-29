@@ -124,7 +124,7 @@ class droneCore():
 
 
         # Update parameters
-        RTL_RETURN_ALT
+        #RTL_RETURN_ALT
 
     ''' Core Functions '''
     def _mavrosHandshake(self): 

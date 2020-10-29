@@ -10,7 +10,7 @@ from tf.transformations import*
 from geometry_msgs.msg import PoseStamped, Quaternion
 from std_msgs.msg import (Bool, String, Int8)
 
-onB_StateSub = '/onboard/state'
+onB_StateSub = '/onboard/substate'
 
 class fence_breach_detection:
     

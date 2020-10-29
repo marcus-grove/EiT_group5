@@ -57,7 +57,7 @@ class loiterPilot():
         self.loiterPub = rospy.Publisher(
             targetWP, 
             mavSP.PoseStamped, 
-            queue_size=5)
+            queue_size=10)
       
         rospy.loginfo('Loiter: LoiterPilot Ready')
 

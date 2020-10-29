@@ -6,12 +6,11 @@
 |t | DroneCore: takeoff + offboard + loiter mode |
 |o | DroneCore: offboard + loiter (useful if something stops during operation) |
 |v | DroneCore: vision guided landing | (not implemented)
-|m | DroneCore: mission | (not implemented)
+|m | DroneCore: mission |
 |h | DroneCore: move the drone to home | (not implemented)
 |k | DroneCore: kill switch | (not implemented)
 |r | DroneCore: reset ROS framework | (not implemented)
-
-|l | Unassigned: logging | (not implemented)
+|l | DroneCore: land at current location |
 
 |wasd | Loiterpilot: forwards, left, back, right |
 |qe   | Loiterpilot: yaw ccw/cw (respectively) |
