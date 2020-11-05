@@ -54,7 +54,7 @@ class fence_detection:
         
         # Save input image.
         cv2.imwrite("output/00_input_image.png", img)
-        
+
         # Save the shifted fft spectrum.
         minval, maxval, a, b = cv2.minMaxLoc(shifted_fft)
         self.shiftet_fft = shifted_fft * 255 / maxval
@@ -87,56 +87,81 @@ class fence_detection:
         cv2.imwrite("output/increased_low_pass_filtered_image.png", img)
 
     def find_angle_peak(self):
-
         img = self.shiftet_fft.copy()
         rows,cols = img.shape
         
         breaker = False
         y = 0
         x = 0
+        center_line_found = False
 
         for i in range(rows):
             if not breaker:
                 for j in range(cols):
+                    #print (j)
                     k = img[i,j]
-                    if k > 150:
+                    if k > 250:
                         y = i
                         x = j
-                        cv2.circle(img,(j,i),5,(255,255,0))
+                        cv2.circle(img,(j,i),5,(0,0,0),10)
                         breaker = True
                         break
+
+
 
         #Center of image 
         center_x = cols/2
         center_y = rows/2
-        
+        #cv2.imshow('test', img)
+        #cv2.waitKey(0)
+        rows,cols = img.shape
+
         #Find angle 
         hyp = np.sqrt((center_x-x)**2 + (center_y-y)**2)
         kat = center_y-y
         self.fourier_peak_angle = np.arctan((center_x-x)/kat)
-        print(np.rad2deg(self.fourier_peak_angle))
-        
-        #Rotate image 
-        r = ndimage.rotate(img_2, np.rad2deg(angle))
-        """
-        cv2.circle(img,(cols/2,rows/2),5,(255,255,0))
-        cv2.circle(img,(x_new,y_new),5,(255,255,0))
+        #print(np.rad2deg(self.fourier_peak_angle))
+        #angle = np.rad2deg(self.fourier_peak_angle)
 
+        #Rotate image
+        r = ndimage.rotate(img, np.rad2deg(self.fourier_peak_angle))
+
+        #img_2 = cv2.imread('output/test2.png',0)
+        #x = x + 10
+        #while True:
+            #pixel_val = img[x,y]
+            #coords = np.argwhere(img >= 150)
+            #for j in coords:
+             #   print(j)
+              #  cv2.circle(img,(j[0],j[1]),5,(255,255,255))
+            #print ('pixel_val = '+str(pixel_val))
+            #print (pixel_max)
+           # break
+
+
+        cv2.circle(img,(center_x,center_y),5,(255,255,0))
+        cv2.circle(img,(x,y),5,(255,255,0))
+        #cv2.line(img,(center_x,center_y),(0,0),(255,255,0))
+        #cv2.line(img, (center_x, center_y), (center_x, 0), (255, 255, 0))
+
+        cv2.imwrite("output/test2.png", img)
         cv2.imwrite("output/05_shifted_fft_image.png", self.shiftet_fft)
         cv2.imwrite("output/test.png", r)
-
+        """
         print("New: " + str(x_new) + " "+ str(y_new))
         print("Center: " + str(center_x) + " "+ str(center_y))
         print("Blob: " + str(x) + " "+ str(y))
         print("Hyp: " + str(hyp))
         print("Kat: " + str(kat))
         """
+        self.find_fourier_angle(x, y)
+
 
     def find_fourier_peaks(self):
 
         img = self.shiftet_fft.copy()
-        rows,cols = img.shape
-
+        rows, cols = img.shape
+        print(img.shape)
         breaker = False
         y = 0
         x = 0
@@ -148,9 +173,65 @@ class fence_detection:
                     if k > 150:
                         y = i
                         x = j
-                        cv2.circle(img,(j,i),5,(255,255,0))
+                        cv2.circle(img,(j,i),500,(255,255,0))
                         breaker = True
                         break
+
+    def find_fourier_angle(self, x, y):
+        img = cv2.imread('output/05_shifted_fft_image.png', 0)
+        thresh_img = img.copy()
+        cv2.imshow('img', img)
+        cv2.waitKey(0)
+        cv2.threshold(img, 20, 255, cv2.THRESH_BINARY, thresh_img)
+        cv2.imshow('thresh_img', thresh_img)
+        cv2.waitKey(0)
+
+        x = x + 5
+
+        mask = np.zeros(img.shape,np.uint8)
+        diff_x = img.shape[1]/2-x
+        diff_y = img.shape[0]/2-y
+        mask = cv2.rectangle(mask,(x,y-img.shape[0]/4),(img.shape[1]/2 + diff_x, img.shape[0]/2 + diff_y),(255,255,255),-1)
+        cv2.imshow('rect', mask)
+        cv2.waitKey(0)
+        masked_img = cv2.bitwise_and(img, mask)
+
+        cv2.threshold(masked_img, 40, 255, cv2.THRESH_BINARY, masked_img)
+        cv2.imshow('masked_img', masked_img)
+        cv2.waitKey(0)
+        coords = np.argwhere(masked_img == 255)
+        cv2.circle(masked_img,(coords[0][1], coords[0][0]),5,(255,255,0),3)
+        cv2.imshow('masked_img2', masked_img)
+        cv2.waitKey(0)
+
+        center_x = img.shape[1]/2
+        center_y = img.shape[0]/2
+        coord_x = coords[0][1]
+        coord_y = coords[0][0]
+
+        proj_coord_y = coord_y
+
+
+        # Find angle
+        hyp = np.sqrt((center_x-coord_x)**2 + (center_y-coord_y)**2)
+        kat = abs(center_y - coord_y)
+        print(np.rad2deg(np.arctan2((coord_x-center_x), kat)))
+        angle=np.rad2deg(np.arccos(kat/hyp))
+        print(angle)
+
+        cv2.line(img, (center_x, center_y), (coord_x, coord_y), (255, 255, 255))
+        cv2.line(img, (center_x, center_y), (center_x, coord_y), (255, 255, 255))
+        cv2.imshow('line on img', img)
+        cv2.waitKey(0)
+
+        #Rotate image
+        r = ndimage.rotate(img, angle/2)
+        r_ten = ndimage.rotate(self.ten_low_pass_filtered, angle/2)
+
+        cv2.imwrite("output/rotated_f.png", r)
+        cv2.imwrite("output/rotated_ten.png", r_ten)
+
+
 
 
 
@@ -160,5 +241,6 @@ if __name__ == "__main__":
     
     img = cv2.imread('input/Eskild_fig_3_17.jpg', 0)
     fd.fence_extraction(img)
+    fd.find_angle_peak()
     #fd.increse_brightness_roi(20)
 
