@@ -209,9 +209,6 @@ class fence_detection:
         coord_x = coords[0][1]
         coord_y = coords[0][0]
 
-        proj_coord_y = coord_y
-
-
         # Find angle
         hyp = np.sqrt((center_x-coord_x)**2 + (center_y-coord_y)**2)
         kat = abs(center_y - coord_y)
