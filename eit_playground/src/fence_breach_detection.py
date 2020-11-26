@@ -46,6 +46,7 @@ class fence_breach_detection:
         try:
             bridge = CvBridge()
             img = bridge.imgmsg_to_cv2(ros_img, "mono8")
+            img_rgb = bridge.imgmsg_to_cv2(ros_img, "rgb8")
         except CvBridgeError as e:
             print(e)
             
@@ -89,29 +90,29 @@ class fence_breach_detection:
            
             # Save input image.
             path = '../../data/fence_detection_vision/' + 'input_image' + str(self.image_index) + '.png'
-            cv2.imwrite(path, img)
+            cv2.imwrite(path, img_rgb)
             
             # Save the shifted fft spectrum.
-            """
+            
             path = "../../data/fence_detection_vision/" + "shifted_fft_image" + str(self.image_index) + ".png"
             minval, maxval, a, b = cv2.minMaxLoc(shifted_fft)
             cv2.imwrite(path, shifted_fft * 255 / maxval)
-            """
-            """
+
+
             # Save the fft peak mask.
             path = "../../data/fence_detection_vision/" + "shifted_fft_peak_mask" + str(self.image_index) + ".png"
             cv2.imwrite(path, mask[:, :, 0] * 1.)
-            """
+
             # Save the filtered image image.
             path = "../../data/fence_detection_vision/" + "low_pass_filtered_image" + str(self.image_index) + ".png"
             minval, maxval, a, b = cv2.minMaxLoc(img_back[:, :, 0])
             cv2.imwrite(path, img_back[:, :, 0] * 255. / maxval)
-            """
+
             # Save the filtered image multiplied with the input image.
             path = "../../data/fence_detection_vision/" + "low_pass_filtered_image_mul_with_input" + str(self.image_index) + ".png"
             minval, maxval, a, b = cv2.minMaxLoc(img * img_back[:, :, 0])
             cv2.imwrite(path, img * img_back[:, :, 0] * 255 / maxval)
-            """
+
             self.image_index += 1
 
         if self.publish_detected_fence_image:
