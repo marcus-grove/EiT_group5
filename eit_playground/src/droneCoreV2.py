@@ -249,7 +249,7 @@ class droneCore():
         pass
 
     ''' Functions '''
-    def waypointCheck(self, threshold=0.25):
+    def waypointCheck(self, threshold=0.15):
         pos = np.array((self.uavLocalPos.pose.position.x,
             self.uavLocalPos.pose.position.y,
             self.uavLocalPos.pose.position.z))
