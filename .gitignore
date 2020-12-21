@@ -14,9 +14,9 @@
 *.pdf
 .txt
 *.bash
-*.mp4
+#.mp4
 
-*.png
+#*.png
 *.py~
 *.swp
 *.un~
