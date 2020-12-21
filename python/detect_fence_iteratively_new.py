@@ -11,8 +11,6 @@ class fence_detection:
 
     def __init__(self):
 
-        self.max_number_of_recursions = 1500
-        sys.setrecursionlimit(self.max_number_of_recursions)
         self.original_img = None
         self.shifted_fft_peak = None
         self.shiftet_fft = None
@@ -25,6 +23,9 @@ class fence_detection:
         self.img_height = 0
         self.img_width = 0
 
+        self.roi_top_left = 0
+        self.roi_bottom_right = 0
+
         #Next move on line
         self.pointer = [0, 0]
         self.new_pointers = []
@@ -35,8 +36,8 @@ class fence_detection:
         self.line_dis_threshold = 1
         
         #Varibles for line follower
-        self.line_threshold = 5
-        self.step_size_line = [1,2,3,4,5,6,7]
+        self.line_threshold = 2
+        self.step_size_line = [1,2,3]
         self.line_move_direction = [1,2,3,0]
         
         #Valid movements [up_right, down_right, down_left, up_left]
@@ -45,10 +46,10 @@ class fence_detection:
         #Variables for peak search
         self.peak_threshold = 5
         self.peak_dis_threshold = 8
-        self.step_size_peak = [3,4,5,6]
+        self.step_size_peak = [4,5,6,7]
         self.peak_move_direction = [[0,1,0],[1,2,1],[2,3,2],[3,0,3]]
         self.peak_search_direction = [[3,0,1],[0,1,2],[1,2,3],[2,3,0]]
-        self.peak_start_end_index = [[0,3],[-5,5],[0,3]]
+        self.peak_start_end_index = [[0,1],[-1,1],[0,1]]
         
         #Init fence serach. This only happens first time to find the fence structure
         self.init_fence_follower = True
@@ -115,42 +116,6 @@ class fence_detection:
         self.twenty_low_pass_filtered = img * img_back[:, :, 0] * 255 / maxval
         cv2.imwrite("output/20_low_pass_filtered_image.png", self.twenty_low_pass_filtered)
 
-    def find_fourier_peaks(self):
-
-        img = self.twenty_low_pass_filtered.copy()
-        img_out = cv2.cvtColor(self.original_img, cv2.COLOR_GRAY2RGB)
-        rows,cols = img.shape
-
-        peaks = []
-        intensity = 50
-        thres = 10
-
-        #Init first peak
-        new_peak = []
-        new_peak.append(0.)
-        new_peak.append(0.)
-        peaks.append(new_peak)
-
-        for i in range(rows):
-            for j in range(cols):
-                k = img[i,j]
-                if k > intensity:
-                    duplicate_peak = False
-                    for peak in peaks:
-                        dis = np.sqrt( np.power((peak[0]-i),2) + np.power((peak[1]-j),2) )
-                        if dis < thres:
-                            duplicate_peak = True
-                            break
-                    if not duplicate_peak:
-                        new_peak = []
-                        new_peak.append(i)
-                        new_peak.append(j)
-                        peaks.append(new_peak)
-
-                        cv2.circle(img_out,(j,i),2,(0,0,255))
-
-        cv2.imwrite("output/test.png", img_out)
-
     def peak_search(self, pointer, pre_move):
 
         self.new_pointers.append(pointer)
@@ -169,8 +134,8 @@ class fence_detection:
                 #self.way_to_fence.append(pointer)
                 
                 #Return if images dimentions exceeded
-                if self.image_dimentions_exceeded(self.img_height, self.img_width, 0, 0, pointer):
-                    return
+                if self.image_dimentions_exceeded(self.img_height, self.img_width, 300, 20, pointer):
+                    break
                 
                 #See if pointer has reached a junction. Here the neighboors will be checked. If the 
                 #neighboor has a pixel intensity above a threshold a junction has proberly been found. Now move 
@@ -219,23 +184,11 @@ class fence_detection:
                 
                 #See if endpoint has aleady been detected
                 if end_reached:
-                    #new_endpoint = True
                     self.end_points.append(pointer)
                     break
-                    """
-                    for end_point in self.end_points:
-                        delta_x = pointer[0] - end_point[0]
-                        delta_y = pointer[1] - end_point[1]
-                        dis = np.sqrt(delta_x*delta_x + delta_y*delta_y)
-                        if dis < self.line_dis_threshold:
-                            new_endpoint = False
-                            break
-                    if new_endpoint:
-                        self.end_points.append(pointer)
-                    break
-                    """
             
             self.number_of_branches -= 1
+    
     #Helper functions
     def next_moves(self, pointer, step_size):
         
@@ -293,9 +246,9 @@ class fence_detection:
 
     def image_dimentions_exceeded(self, img_height, img_width, max_dis_width, max_dis_height, pointer):
 
-        if (pointer[0] > (img_width - max_dis_width)) or (pointer[0] < max_dis_width):
+        if (pointer[0] > self.roi_bottom_right[0]) or (pointer[0] < self.roi_top_left[0]):
             return True
-        if (pointer[1] > (img_height - max_dis_height)) or (pointer[1] < max_dis_height):
+        if (pointer[1] > self.roi_bottom_right[1]) or (pointer[1] < self.roi_top_left[1]):
             return True
 
         #Image dimentions no exceeded
@@ -304,41 +257,23 @@ class fence_detection:
     def find_roi(self, end_points, rescale_x, rescale_y):
 
         #Sort end points from lowest to biggest
-        end_points_ = end_points
-        sorted_lowest_x = sorted(end_points,key=lambda x: x[0])
-        sorted_lowest_y = sorted(end_points,key=lambda x: x[1])
-
-        #Find extrems (An approximation of 25% of distributed points to top, bottom, right and left has been surgested)
-        top = sorted_lowest_y[:len(end_points)//4]
-        bottom = sorted_lowest_y[-len(end_points)//4:]
-        left = sorted_lowest_x[:len(end_points)//4]
-        right = sorted_lowest_x[-len(end_points)//4:]
-
-        #Find means 
-        t_mean_x = sum([x[0] for x in top ])//len(top)
-        t_mean_y = sum([x[1] for x in top ])//len(top)
+        sorted_lowest = sorted(end_points,key=lambda x: x[1])
         
-        b_mean_x = sum([x[0] for x in bottom ])//len(bottom)
-        b_mean_y = sum([x[1] for x in bottom ])//len(bottom)
-        
-        l_mean_x = sum([x[0] for x in left ])//len(left)
-        l_mean_y = sum([x[1] for x in left ])//len(left)
-        
-        r_mean_x = sum([x[0] for x in right ])//len(right)
-        r_mean_y = sum([x[1] for x in right ])//len(right)
-        
-        #Rescale the ROI with wanted value 
-        x = rescale_x*(r_mean_x-l_mean_x)
-        y = rescale_y*(b_mean_y-t_mean_y)
+        for _ in range(20):
+            if len(sorted_lowest) > 0:
+                sorted_lowest.pop(0)
+        for _ in range(30):
+            if len(sorted_lowest):
+                sorted_lowest.pop(-1)
         
         #Define ROI
-        top_left_roi = [int(l_mean_x + x),int(t_mean_y + y)]
-        bottom_right_roi = [int(r_mean_x - x),int(b_mean_y - y)]
+        top_left_roi = self.roi_top_left
+        bottom_right_roi = self.roi_bottom_right
         roi = [top_left_roi, bottom_right_roi]
         
         #Find end points inside ROI
         points_in_roi = []
-        for point in end_points_:
+        for point in sorted_lowest:
             if (point[0] > roi[0][0]) and (point[1] > roi[0][1]) and (point[0] < roi[1][0]) and (point[1] < roi[1][1]):
                 points_in_roi.append(point)
         return roi, points_in_roi
@@ -348,7 +283,7 @@ class fence_detection:
         X = np.asarray(points_in_roi)
         clustering = AgglomerativeClustering(distance_threshold=dist, n_clusters=None, linkage='average')
         clustering = clustering.fit(X)
-        
+
         clusters = []
         for (point,label) in zip(points_in_roi,clustering.labels_):
             cluster = []
@@ -381,24 +316,24 @@ class fence_detection:
                 print(point)
                 dist += np.sqrt((point[0]-mean[0])**2 + (point[1]-mean[1])**2)
                 counter += 1
+            
             r.append(dist/counter)
 
-        print(sorted_clusters)
-        print(clusters)
-        print(means)
-        print(r)
-        
         return means, r, clusters
 
 if __name__ == "__main__":
 
     fd = fence_detection()
 
-    img = cv2.imread('input/Eskild_fig_3_17_hole.jpg', 0)
-    #img = cv2.resize(img, (0,0), fx=1.0, fy=1.0)
+    img = cv2.imread('input/hole1.jpg', 0)
+    h, w = img.shape
+    img = cv2.resize(img, (int(w/3),int(h/3)))
     
     fd.img_height, fd.img_width = img.shape
     
+    fd.roi_top_left = [(fd.img_width/2-100), 20]
+    fd.roi_bottom_right = [(fd.img_width/2+100),fd.img_height-20]
+
     fd.fence_extraction(img)
     for i in range(4):
         
@@ -413,7 +348,9 @@ if __name__ == "__main__":
         fd.end_points = []
    
     roi, points_in_roi = fd.find_roi(fd.end_points, 0.35, 0.0) #0.35 0.0
-    means, std, clusters = fd.find_breach(points_in_roi,100)
+    means, std, clusters = [], [], []
+    if len(points_in_roi):
+        means, std, clusters = fd.find_breach(points_in_roi,100)
     
     img = fd.original_img.copy()
     img = cv2.cvtColor(img, cv2.COLOR_GRAY2RGB)
@@ -428,12 +365,6 @@ if __name__ == "__main__":
     for point in fd.peaks:
         cv2.circle(img,(int(point[0]),int(point[1])),1,(255,0,0),2)
 
-    #Draw end points
-    print('Found number of endpoints (red): ' + str(len(fd.end_points)))
-    for point in fd.end_points:
-        cv2.circle(img,(int(point[0]),int(point[1])),1,(0,0,255),2)
-
-    
     #Draw ROI
     img = cv2.rectangle(img,(int(roi[0][0]),int(roi[0][1])),(int(roi[1][0]),int(roi[1][1])),(255,255,255),1)
 
@@ -442,23 +373,15 @@ if __name__ == "__main__":
     for point in points_in_roi:
         cv2.circle(img,(int(point[0]),int(point[1])),1,(0,255,0),2)
 
-    #Draw points inside ROI
-    #print('Found number of points in ROI (green): ' + str(len(points_in_roi)))
-    colors = [[255,0,255],[153,255,238],[0,255,255],[30,105,210],[42,42,165],[211,211,211],[169,169,169]]
-    index = 0
-    for cluster in clusters:
-        for point in cluster:
-            cv2.circle(img,(int(point[0]),int(point[1])),1,(colors[index][0],colors[index][1],colors[index][2]),2)
-        index = index + 1
-
-    for mean in means:
-        cv2.circle(img,(int(mean[0]),int(mean[1])),5,(255,255,255),5)
+    for (r, mean, cluster) in zip(std, means, clusters):
+        if r*2 > 50:
+            for point in cluster:
+                cv2.circle(img,(int(point[0]),int(point[1])),1,(0,0,255),2)
+            cv2.circle(img,(int(mean[0]),int(mean[1])),int(r),(0,0,255),1)
+            cv2.circle(img,(int(mean[0]),int(mean[1])),5,(255,255,255),5)
+        print('Diameter: ' + str(r*2))
     
-    for (r,mean,c) in zip(std,means,colors):
-        cv2.circle(img,(int(mean[0]),int(mean[1])),int(r),c,1)
-        print('Diameter: ' + str(r*2) + ' Color: ' + str(c))
     
-
     print(len(points_in_roi))
     cv2.imwrite("output/peaks_endpoints.png", img)
 
